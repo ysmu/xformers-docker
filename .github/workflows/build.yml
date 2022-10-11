@@ -1,0 +1,67 @@
+name: Build and Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      cuda_version:
+        default: '11.6.1'
+      python_version:
+        default: '3.10'
+      torch_cuda_arch_list:
+        default: '6.1'
+      xformers_ref:
+        default: 'main'
+
+  push:
+    branches: [master]
+
+jobs:
+  build-wheel:
+    name: Build xformers
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Arguments 
+        run: |
+          echo "CUDA_VERSION=${{ inputs.cuda_version || '11.6.1' }}" >> $GITHUB_ENV
+          echo "PYTHON_VERSION=${{ inputs.python_version || '3.10' }}" >> $GITHUB_ENV
+          echo "TORCH_CUDA_ARCH_LIST=${{ inputs.torch_cuda_arch_list || '6.1' }}" >> $GITHUB_ENV
+          echo "XFORMERS_REF=${{ inputs.xformers_ref || 'main' }}" >> $GITHUB_ENV
+
+      - name: Build Docker Image
+        run: |
+          docker build . \
+            -t ysmu/xformers \
+            --build-arg CUDA_VERSION=$CUDA_VERSION \
+            --build-arg PYTHON_VERSION=$PYTHON_VERSION \
+            --build-arg TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST \
+            --build-arg XFORMERS_REF=$XFORMERS_REF
+
+      - name: Fetch Artifacts
+        run: |
+          container_id=$(docker create ysmu/xformers)
+          docker cp $container_id:out/ out
+          docker rm $container_id
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: xformers-wheels
+          path: out/*
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "${{ github.ref_name }} (${{ github.event.head_commit.timestamp }})"
+          tag_name: "py${{ env.PYTHON_VERSION }}_cu${{ env.CUDA_VERSION }}_arch${{ env.TORCH_CUDA_ARCH_LIST }}_${{ env.XFORMERS_REF }}"
+          body: |
+            cuda_version=${{ env.CUDA_VERSION }}
+            python_version=${{ env.PYTHON_VERSION }}
+            torch_cuda_arch_list=${{ env.TORCH_CUDA_ARCH_LIST }}
+            xformers_ref=${{ env.XFORMERS_REF }}
+          files: out/*
+        if: github.event_name == 'push'
+      

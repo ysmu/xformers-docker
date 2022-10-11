@@ -1,8 +1,10 @@
-FROM nvidia/cuda:11.6.1-devel-ubuntu20.04
+ARG CUDA_VERSION=11.6.1
+FROM nvidia/cuda:$CUDA_VERSION-devel-ubuntu20.04
 
 # 6.1 for 1000 series
 ARG TORCH_CUDA_ARCH_LIST=6.1
 ARG PYTHON_VERSION=3.10
+ARG XFORMERS_REF=main
 
 RUN apt-get update \
   && apt-get install -y git g++ wget \
@@ -17,7 +19,9 @@ RUN conda create -n xformers python=$PYTHON_VERSION
 SHELL ["conda", "run", "--no-capture-output", "-n=xformers", "/bin/bash", "-c"]
 
 WORKDIR /tmp/xformers
-RUN git clone https://github.com/facebookresearch/xformers.git /tmp/xformers && git submodule update --init --recursive
+RUN git clone --depth 1 https://github.com/facebookresearch/xformers.git /tmp/xformers \
+  && git checkout $XFORMERS_REF \
+  && git submodule update --init --recursive
 
 # We have to install requirements.txt first because setup.py imports torch
 RUN pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu116
