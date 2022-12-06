@@ -26,6 +26,8 @@ jobs:
 
       - name: Setup Arguments 
         run: |
+          # We have to set default values here again because the default values in workflow_dispatch.inputs are only
+          # available when the workflow is manually triggered.
           echo "CUDA_VERSION=${{ inputs.cuda_version || '11.6.1' }}" >> $GITHUB_ENV
           echo "PYTHON_VERSION=${{ inputs.python_version || '3.10' }}" >> $GITHUB_ENV
           echo "TORCH_CUDA_ARCH_LIST=${{ inputs.torch_cuda_arch_list || '6.0;6.1;6.2;7.0;7.2;7.5;8.0;8.6' }}" >> $GITHUB_ENV
